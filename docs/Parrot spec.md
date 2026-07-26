@@ -113,6 +113,7 @@ parrot/
 │   │   │   ├── season-gaps.ts         # Shared season-gap computation for CHECK_EPISODES (pure)
 │   │   │   ├── library.ts             # Index lookups, Plex deep links
 │   │   │   ├── metadata.ts            # Radarr/Sonarr metadata + ratings application
+│   │   │   ├── self-heal.ts           # Server-URL re-discovery via plex.tv on refresh failure
 │   │   │   └── version.ts             # Update check against GitHub releases
 │   │   ├── tmdb.content.ts            # TMDB content script
 │   │   ├── imdb.content.ts            # IMDb content script
@@ -166,7 +167,7 @@ parrot/
 │       ├── logger.ts                  # Debug/error logging gated by settings toggle
 │       ├── dom-utils.ts               # DOM utilities (waitForElement)
 │       └── sites.ts                   # Supported site definitions
-├── tests/                             # Vitest test suite (369 tests)
+├── tests/                             # Vitest test suite (378 tests)
 ├── scripts/
 │   ├── bump-build.js                  # Auto-increment build number (B)
 │   └── bump-commit.js                 # Bump commit number (A), reset B
@@ -544,6 +545,13 @@ Lookup tries `"title|year"` first, falls back to `"title"` only.
 | Auto-refresh enabled | On each CHECK, if index age exceeds threshold (default 7 days), fire-and-forget rebuild in background |
 | Auto-refresh disabled | No automatic rebuilds; user must refresh manually |
 | Manual refresh | User clicks "Refresh Library" in popup/options |
+
+**Refresh failure handling** (manual and auto paths alike):
+
+1. A build only counts as failed after `plexFetch` exhausted every candidate URL (memoized → local `serverUrl` → `remoteUrl`).
+2. **Self-heal** (`bg/self-heal.ts`): the background re-discovers the server's current connection URLs via plex.tv (server re-publishes them on startup), updates `serverUrl`/`remoteUrl`, flushes the URL memo, and retries the build once. Covers DHCP/IP changes with zero user action; plex.tv is only contacted from this failure path.
+3. If the heal is unavailable or the retry fails, the failure is persisted as `lastRefreshError {at, message}` in `storage.local` (cleared on the next success). `GET_STATUS` exposes it; the popup turns the Plex pill red and shows a "check your Plex server settings" toast on open, and the options page shows the same banner with the error detail — so a failure that happened while no UI was open still surfaces.
+4. Connection tests (`testConnection`) use a 5 s per-URL timeout (vs 30 s for library fetches) so status dots reflect reality quickly.
 
 ### Storage
 

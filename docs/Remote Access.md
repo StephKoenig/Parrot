@@ -74,18 +74,28 @@ The current `plexFetch` has no timeout (relies on fetch's default). For the remo
 
 Net worst case when both URLs are misconfigured: 6 seconds. With `lastWorkingUrl` memo, only the first failing call pays this.
 
-### IP rotation handling
+### IP rotation handling (self-heal — implemented v1.25.x)
 
-`.plex.direct` URLs encode the server's public IP. ISPs rotate public IPs occasionally — when this happens:
+`.plex.direct` URLs encode an IP, and DHCP can move the server's LAN address —
+either way the stored URLs go stale and every candidate fails. "The server
+moved" is indistinguishable from "the user is traveling", so the recovery is
+the same for both:
 
-- The auto-fetched URL becomes stale
-- `plexFetch` falls back to `serverUrl` (which fails when remote) → both fail → error badge
-
-To handle this:
-
-1. **Auto-refresh on library refresh** — the existing 7-day library index rebuild also re-runs auto-detect. This is the main self-healing mechanism.
-2. **Manual "Auto-detect" button** in the server edit form — user can re-fetch on demand.
-3. **Manual edit field** — user can paste a new URL directly without re-saving credentials.
+1. **Self-heal on refresh failure** (`bg/self-heal.ts`) — when an index
+   refresh fails on *every* configured URL (memoized → local → remote), the
+   background asks plex.tv for the server's current connections (matched by
+   `machineIdentifier`), updates **both** `serverUrl` and `remoteUrl`, flushes
+   the URL memo, and retries the build once. The Plex server re-publishes its
+   addresses to plex.tv on startup, so this recovers reboots-with-new-IP
+   without user action. plex.tv is only ever contacted from this failure
+   path — a healthy local connection never touches it.
+2. **Failure surfacing** — if the heal is unavailable or the retry still
+   fails, the failure is persisted (`lastRefreshError`) and surfaced: the
+   popup's Plex pill turns red with a "check your Plex server settings"
+   toast, and the options page shows the same banner with the error message.
+   Cleared on the next successful refresh.
+3. **Manual "Auto-detect" button** in the server edit form — user can re-fetch on demand.
+4. **Manual edit field** — user can paste a new URL directly without re-saving credentials.
 
 ### UI
 

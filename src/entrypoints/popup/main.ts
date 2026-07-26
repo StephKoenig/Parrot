@@ -175,11 +175,23 @@ async function initDashboard() {
 
   // Service status pills (always show all four)
   statusPills.innerHTML = "";
-  const plexActive = status.configured && !!status.lastRefresh;
-  addStatusPill("Plex", plexActive);
-  addStatusPill("TMDB", status.tmdbConfigured);
-  addStatusPill("TVDB", status.tvdbConfigured);
-  addStatusPill("OMDb", status.omdbConfigured);
+  // Red when the most recent refresh attempt (manual or auto) failed —
+  // e.g. the server changed IP and every configured URL is dead.
+  const refreshFailed =
+    !!status.lastRefreshError && status.lastRefreshError.at > (status.lastRefresh ?? 0);
+  const plexState = refreshFailed
+    ? "error"
+    : status.configured && !!status.lastRefresh
+      ? "active"
+      : "inactive";
+  addStatusPill("Plex", plexState);
+  addStatusPill("TMDB", status.tmdbConfigured ? "active" : "inactive");
+  addStatusPill("TVDB", status.tvdbConfigured ? "active" : "inactive");
+  addStatusPill("OMDb", status.omdbConfigured ? "active" : "inactive");
+
+  if (refreshFailed) {
+    showFeedback(dashFeedback, "Last library refresh failed — check your Plex server settings", "error");
+  }
 
   // Library summary (stacked)
   movieCountEl.textContent = `${status.movieCount} Movies`;
@@ -332,9 +344,9 @@ function renderMediaCard(media: NonNullable<TabMediaResponse["media"]>, debug = 
   if (media.tvdbId) addIdLink("TVDB", `TVDB ${media.tvdbId}`, `https://www.thetvdb.com/dereferrer/series/${media.tvdbId}`, debug);
 }
 
-function addStatusPill(label: string, active: boolean) {
+function addStatusPill(label: string, state: "active" | "inactive" | "error") {
   const pill = document.createElement("span");
-  pill.className = `status-pill${active ? " active" : ""}`;
+  pill.className = `status-pill${state === "inactive" ? "" : ` ${state}`}`;
   const dot = document.createElement("span");
   dot.className = "pill-dot";
   pill.appendChild(dot);

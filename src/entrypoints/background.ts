@@ -1,5 +1,5 @@
-import { getServers, saveServers, getLibraryIndex, saveLibraryIndex, getOptions, saveOptions, getCachedCollection, saveCachedCollection, getCachedEpisodeGaps, saveCachedEpisodeGaps, clearMetadataCaches, getUpdateCheck } from "../common/storage";
-import { testConnection, buildLibraryIndex, fetchShowEpisodes, formatResolution } from "../api/plex";
+import { getServers, saveServers, getLibraryIndex, saveLibraryIndex, getOptions, saveOptions, getCachedCollection, saveCachedCollection, getCachedEpisodeGaps, saveCachedEpisodeGaps, clearMetadataCaches, getUpdateCheck, getLastRefreshError, setLastRefreshError, clearLastRefreshError } from "../common/storage";
+import { testConnection, buildLibraryIndex, fetchShowEpisodes, formatResolution, _resetUrlMemo } from "../api/plex";
 import { getMovie, getCollection, getTvShow, getTvSeason, findByTvdbId, findByImdbId, searchMovie, searchTv } from "../api/tmdb";
 import { getSeriesEpisodes, getSeriesDetails, validateTvdbKey } from "../api/tvdb";
 import { lookupByImdb } from "../api/tvmaze";
@@ -17,6 +17,7 @@ import { applyRadarrMetadata, applySonarrMetadata, hasAnyRatings } from "./bg/me
 import { computeSeasonGaps, episodeKey, type GapEpisode } from "./bg/season-gaps";
 import { handleCheck } from "./bg/check";
 import { evaluateCollection, type CollectionPart } from "./bg/collection";
+import { tryHealServerUrls } from "./bg/self-heal";
 import type {
   Message,
   CheckResponse,
@@ -178,12 +179,16 @@ async function loadIndex(): Promise<LibraryIndex | null> {
         if (servers.length === 0) { autoRefreshing = false; return; }
         try {
           debugLog("BG", `auto-refresh — ${reason}, refreshing`);
-          const newIndex = await buildLibraryIndex(servers);
+          const { index: newIndex } = await buildIndexSelfHealing(servers);
           await saveLibraryIndex(newIndex);
           setIndex(newIndex);
+          await clearLastRefreshError();
           debugLog("BG", `auto-refresh complete — ${newIndex.itemCount} items`);
         } catch (err) {
           errorLog("BG", "auto-refresh failed", err);
+          // Persist the failure so the popup/options Plex indicators go red
+          // even though nobody was watching when this ran.
+          await setLastRefreshError(String(err));
         } finally {
           autoRefreshing = false;
         }
@@ -195,6 +200,35 @@ async function loadIndex(): Promise<LibraryIndex | null> {
   }
 
   return cachedIndex;
+}
+
+/**
+ * Build the library index, self-healing stale server URLs on failure.
+ *
+ * A refresh only reaches the catch after EVERY configured URL failed
+ * (memoized → local → remote). That state is indistinguishable from "the
+ * server moved" (DHCP gave it a new IP, .plex.direct re-registered), so we
+ * ask plex.tv for the server's current connection URLs, persist them, and
+ * retry once. plex.tv is only ever contacted from this failure path. If the
+ * heal is unavailable or the retry still fails, the original error
+ * propagates and the red-pill/toast machinery takes over.
+ */
+async function buildIndexSelfHealing(
+  servers: PlexServerConfig[],
+): Promise<{ index: LibraryIndex; servers: PlexServerConfig[] }> {
+  try {
+    return { index: await buildLibraryIndex(servers), servers };
+  } catch (err) {
+    debugLog("BG", "index build failed — attempting server-URL self-heal via plex.tv");
+    const healed = await tryHealServerUrls(servers);
+    if (!healed) throw err;
+    _resetUrlMemo(); // stale per-server URL memos would burn a timeout each
+    const index = await buildLibraryIndex(healed);
+    await saveServers(healed);
+    cachedServers = healed;
+    debugLog("BG", "self-heal succeeded — server URLs updated from plex.tv");
+    return { index, servers: healed };
+  }
 }
 
 /** Build lazy reverse lookups for PLEX_LOOKUP (plexKey→index, movie index set). */
@@ -607,7 +641,7 @@ export default defineBackground(() => {
               break;
             }
             try {
-              const index = await buildLibraryIndex(servers);
+              const { index, servers: activeServers } = await buildIndexSelfHealing(servers);
               await saveLibraryIndex(index);
               setIndex(index);
 
@@ -618,18 +652,20 @@ export default defineBackground(() => {
                   counts.set(sid, (counts.get(sid) ?? 0) + 1);
                 }
               }
-              const updatedServers = servers.map(s => ({
+              const updatedServers = activeServers.map(s => ({
                 ...s,
                 itemCount: counts.get(s.id) ?? 0,
               }));
               await saveServers(updatedServers);
               cachedServers = updatedServers;
+              await clearLastRefreshError();
 
               sendResponse({
                 success: true,
                 itemCount: index.itemCount,
               } satisfies BuildIndexResponse);
             } catch (err) {
+              await setLastRefreshError(String(err));
               sendResponse({
                 success: false,
                 error: String(err),
@@ -649,6 +685,7 @@ export default defineBackground(() => {
               configured: servers.length > 0,
               serverCount: servers.length,
               lastRefresh: index?.lastRefresh ?? null,
+              lastRefreshError: await getLastRefreshError(),
               itemCount: index?.itemCount ?? 0,
               movieCount: index?.movieCount ?? 0,
               showCount: index?.showCount ?? 0,

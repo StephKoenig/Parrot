@@ -19,6 +19,11 @@ type PlexConnConfig = { serverUrl: string; remoteUrl?: string; token: string; id
 // service worker lifetime.
 const PER_ATTEMPT_TIMEOUT_MS = 30000;
 
+// Connection tests only need a cheap "is anyone there?" answer — a healthy
+// server responds to /library/sections in well under a second. 5s keeps the
+// options-page status dots honest instead of grinding through 30s x N URLs.
+const TEST_TIMEOUT_MS = 5000;
+
 /**
  * Session-sticky memo of the working URL per server. Cleared when service worker
  * unloads, so re-probing happens naturally on cold start (e.g. after laptop wake).
@@ -34,9 +39,14 @@ function stripTrailingSlash(url: string): string {
   return url.replace(/\/+$/, "");
 }
 
-async function fetchAttempt(baseUrl: string, path: string, token: string): Promise<Response> {
+async function fetchAttempt(
+  baseUrl: string,
+  path: string,
+  token: string,
+  timeoutMs: number = PER_ATTEMPT_TIMEOUT_MS,
+): Promise<Response> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), PER_ATTEMPT_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(`${stripTrailingSlash(baseUrl)}${path}`, {
       headers: { Accept: "application/json", "X-Plex-Token": token },
@@ -53,7 +63,7 @@ async function fetchAttempt(baseUrl: string, path: string, token: string): Promi
  * returns a Response (even non-2xx) is returned; only network/timeout errors
  * trigger fallback. On success, the working URL is memoized for the session.
  */
-async function plexFetch(config: PlexConnConfig, path: string): Promise<Response> {
+async function plexFetch(config: PlexConnConfig, path: string, timeoutMs?: number): Promise<Response> {
   const candidates: string[] = [];
   const memoKey = config.id;
   const memoUrl = memoKey ? lastWorkingUrl.get(memoKey) : undefined;
@@ -64,7 +74,7 @@ async function plexFetch(config: PlexConnConfig, path: string): Promise<Response
   let lastError: Error | undefined;
   for (const url of candidates) {
     try {
-      const res = await fetchAttempt(url, path, config.token);
+      const res = await fetchAttempt(url, path, config.token, timeoutMs);
       if (memoKey) lastWorkingUrl.set(memoKey, url);
       return res;
     } catch (err) {
@@ -113,7 +123,7 @@ export async function testConnection(
   config: PlexConnConfig,
 ): Promise<{ success: boolean; error?: string; libraryCount?: number; machineIdentifier?: string; friendlyName?: string }> {
   try {
-    const res = await plexFetch(config, "/library/sections");
+    const res = await plexFetch(config, "/library/sections", TEST_TIMEOUT_MS);
     if (!res.ok) {
       if (res.status === 401) {
         return { success: false, error: "Authentication failed — check your token" };
@@ -127,7 +137,7 @@ export async function testConnection(
     let machineIdentifier: string | undefined;
     let friendlyName: string | undefined;
     try {
-      const idRes = await plexFetch(config, "/");
+      const idRes = await plexFetch(config, "/", TEST_TIMEOUT_MS);
       if (idRes.ok) {
         const idData = (await idRes.json()) as {
           MediaContainer?: { machineIdentifier?: string; friendlyName?: string };

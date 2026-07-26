@@ -79,3 +79,15 @@ export function pickRemoteUrl(resources: PlexResource[], machineIdentifier: stri
   const remote = (server.connections ?? []).find((c) => !c.local && !c.relay);
   return remote?.uri ?? null;
 }
+
+/**
+ * Pick the best LOCAL URL for a server identified by machineIdentifier.
+ * The server re-publishes its connections to plex.tv on startup, so this
+ * reflects the current LAN address even after a DHCP change.
+ */
+export function pickLocalUrl(resources: PlexResource[], machineIdentifier: string): string | null {
+  const server = resources.find((r) => r.clientIdentifier === machineIdentifier);
+  if (!server) return null;
+  const local = (server.connections ?? []).find((c) => c.local && !c.relay);
+  return local?.uri ?? null;
+}

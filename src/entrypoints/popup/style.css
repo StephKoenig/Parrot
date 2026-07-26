@@ -208,6 +208,14 @@ button.primary:hover:not(:disabled) {
   color: #ccc;
 }
 
+.status-pill.error .pill-dot {
+  background: #e53935;
+}
+
+.status-pill.error {
+  color: #ccc;
+}
+
 /* --- Update banner --- */
 
 .update-banner[hidden] {

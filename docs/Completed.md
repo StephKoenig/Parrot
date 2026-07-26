@@ -1179,3 +1179,23 @@ The dedicated refactor session for the five interlocking structural findings def
 ### Test Suite
 - New: `bg-season-gaps` (11), `bg-check` (18, incl. alt-key/ambiguous-type retries), `bg-collection` (8), `api-tvdb` (10 — the only API client that had no test file; covers 401 re-login retry and 500-per-page pagination termination).
 - Total: **356 tests across 24 files** (up from 306).
+
+---
+
+## v1.25.x — Refresh Failure Surfacing + Server-URL Self-Heal
+
+Fixes the "silent failure" incident: a Plex server rebooted onto a new DHCP address kept a green status light and an old last-sync time with no error anywhere.
+
+### Self-heal (bg/self-heal.ts)
+- When an index refresh fails on every candidate URL (memoized, local, remote), the background re-discovers the server's current connection URLs from plex.tv (matched by machineIdentifier), updates both serverUrl and remoteUrl, flushes the per-server URL memo, and retries the build once. The server re-publishes its addresses to plex.tv on startup, so an IP change heals without user action. plex.tv is only ever contacted from this failure path.
+- New pickLocalUrl() in plex-tv.ts alongside pickRemoteUrl().
+
+### Failure surfacing
+- lastRefreshError {at, message} persisted in storage.local on any failed refresh (manual or 7-day auto), cleared on success — failures now survive the popup closing.
+- Popup: Plex status pill gains a red "error" state (was green/gray only) and shows a "check your Plex server settings" toast on open while the last attempt is a failure.
+- Options page: same banner on load, including the error message.
+- testConnection now uses a 5 s per-URL timeout (was the 30 s library-fetch timeout), so options-page status dots turn red in seconds rather than minutes.
+
+### Test Suite
+- New bg-self-heal tests (8: URL updates, missing-connection preservation, no-change short-circuit, unknown server untouched, one plex.tv call per unique token) and a fake-timer test for the fast connection-test timeout.
+- Total: 378 tests across 26 files.

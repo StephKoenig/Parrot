@@ -13,8 +13,7 @@ Forward-looking roadmap. See [`Completed.md`](Completed.md) for everything alrea
 ### Polish & Reliability (remaining)
 
 **Error Handling**
-- [ ] Graceful handling of Plex server going offline mid-session
-- [ ] Retry logic for transient network failures during index build
+- [ ] Retry logic for transient network failures during index build (self-heal covers moved-server; a plain transient retry is still open)
 
 **Performance**
 - [ ] Measure index build time for large libraries (1000+ items)

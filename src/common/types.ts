@@ -138,10 +138,18 @@ export type Message =
 
 // --- Responses ---
 
+/** Outcome of the most recent failed index refresh (manual or auto). */
+export interface RefreshErrorRecord {
+  at: number;
+  message: string;
+}
+
 export interface StatusResponse {
   configured: boolean;
   serverCount: number;
   lastRefresh: number | null;
+  /** Set when the most recent refresh attempt failed (cleared on success). */
+  lastRefreshError?: RefreshErrorRecord | null;
   itemCount: number;
   movieCount: number;
   showCount: number;

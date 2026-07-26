@@ -769,6 +769,16 @@ void (async () => {
   void updateStorageUsage();
   populateUpdateSection(status);
 
+  // Surface a persisted refresh failure (manual or auto) — the popup toast
+  // dies with the popup, so the options page repeats the warning on load.
+  if (status.lastRefreshError && status.lastRefreshError.at > (status.lastRefresh ?? 0)) {
+    showFeedback(
+      plexFeedback,
+      `Last library refresh failed — check your Plex server settings (${status.lastRefreshError.message})`,
+      "error",
+    );
+  }
+
   // Load custom sites and render sites table
   customSites = await getCustomSites();
   renderSitesTable();

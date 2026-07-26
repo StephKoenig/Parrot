@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fetchLibrarySections, _resetUrlMemo } from "../src/api/plex";
+import { fetchLibrarySections, testConnection, _resetUrlMemo } from "../src/api/plex";
 import type { PlexServerConfig } from "../src/common/types";
 
 vi.mock("../src/common/logger", () => ({
@@ -25,6 +25,32 @@ function okResponse(body: unknown): Response {
 beforeEach(() => {
   vi.restoreAllMocks();
   _resetUrlMemo();
+});
+
+describe("testConnection fast timeout", () => {
+  it("gives up on a hung server after the short test timeout per candidate", async () => {
+    vi.useFakeTimers();
+    try {
+      // Simulate a black-holed IP: fetch never settles until aborted
+      vi.stubGlobal("fetch", vi.fn((_url: string, init?: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+        }),
+      ));
+
+      const resultPromise = testConnection(server);
+      // 5s test timeout per candidate (serverUrl, then remoteUrl) — far
+      // below the 30s library-fetch timeout
+      await vi.advanceTimersByTimeAsync(5_000);
+      await vi.advanceTimersByTimeAsync(5_000);
+
+      const result = await resultPromise;
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Could not reach server");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("plexFetch URL fallback", () => {

@@ -1,4 +1,4 @@
-import type { PlexServerConfig, LibraryIndex, ParrotOptions, EpisodeGapCacheEntry, SiteDefinition } from "./types";
+import type { PlexServerConfig, LibraryIndex, ParrotOptions, EpisodeGapCacheEntry, RefreshErrorRecord, SiteDefinition } from "./types";
 import { DEFAULT_OPTIONS } from "./types";
 import type { TMDBCollection } from "../api/tmdb";
 
@@ -94,6 +94,29 @@ export async function clearMetadataCaches(): Promise<void> {
   );
   keysToRemove.push(LEGACY_EPISODE_GAP_CACHE_KEY, LEGACY_COLLECTION_CACHE_KEY);
   await browser.storage.local.remove(keysToRemove);
+}
+
+// --- Last refresh outcome ---
+
+const REFRESH_ERROR_KEY = "lastRefreshError";
+
+/**
+ * Record that an index refresh (manual or auto) failed, so the failure
+ * survives the popup/options page closing and can turn the Plex status
+ * indicators red. Cleared by clearLastRefreshError() on the next success.
+ */
+export async function setLastRefreshError(message: string): Promise<void> {
+  const record: RefreshErrorRecord = { at: Date.now(), message };
+  await browser.storage.local.set({ [REFRESH_ERROR_KEY]: record });
+}
+
+export async function getLastRefreshError(): Promise<RefreshErrorRecord | null> {
+  const result = await browser.storage.local.get(REFRESH_ERROR_KEY);
+  return (result[REFRESH_ERROR_KEY] as RefreshErrorRecord) ?? null;
+}
+
+export async function clearLastRefreshError(): Promise<void> {
+  await browser.storage.local.remove(REFRESH_ERROR_KEY);
 }
 
 // --- Update check ---
