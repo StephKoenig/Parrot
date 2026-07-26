@@ -196,6 +196,8 @@ If you have **Plex Remote Access** enabled on your server, Parrot can keep worki
 
 When you save credentials, Parrot calls the official `plex.tv/api/v2/resources` endpoint and auto-populates the **Remote URL** field with your server's `.plex.direct` URL. At runtime, the extension tries the local URL first, falls back to the remote URL on network failure, and remembers the working choice per server for the session.
 
+If a library refresh fails on *every* configured URL (typically because the server rebooted onto a new IP address), Parrot self-heals: it re-fetches the server's current addresses from plex.tv, updates both URLs, and retries automatically. Only when that also fails does the popup show a red Plex indicator and a "check your Plex server settings" warning.
+
 You can also enter or edit the Remote URL manually — useful if your public IP changes or auto-detection fails. See [`docs/Remote Access.md`](docs/Remote%20Access.md) for the full design.
 
 ---
@@ -245,7 +247,7 @@ See [`CLAUDE.md`](CLAUDE.md) for a tour of the codebase, and [`docs/Parrot spec.
 - TypeScript (strict mode)
 - [WXT](https://wxt.dev/) — Vite-based browser extension framework
 - Manifest V3
-- Vitest (356 tests as of v1.25.0)
+- Vitest (378 tests as of v1.26.0)
 
 ---
 
