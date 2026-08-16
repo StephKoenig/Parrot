@@ -1,6 +1,9 @@
 {
   "extends": "./.wxt/tsconfig.json",
   "compilerOptions": {
-    "strict": true
+    "strict": true,
+    // wxt 0.21's generated tsconfig enables noUncheckedIndexedAccess; adopting
+    // it is a codebase-wide change (~200 errors) tracked in docs/TODO.md.
+    "noUncheckedIndexedAccess": false
   }
 }

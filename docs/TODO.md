@@ -24,12 +24,13 @@ Forward-looking roadmap. See [`Completed.md`](Completed.md) for everything alrea
 
 ### Code Hygiene
 
+- [ ] Adopt `noUncheckedIndexedAccess` — wxt 0.21's generated tsconfig enables it; we override it to `false` in the root `tsconfig.json` because turning it on surfaces ~200 `T | undefined` errors across src + tests. Worth adopting incrementally: it catches exactly the "index into a map/array and trust the result" bug class.
 - [ ] Add unit tests for `gap-checker.ts` (needs browser.runtime mocking)
 - [ ] Add unit tests for `url-observer.ts` (needs MutationObserver mocking)
 
 **Dependency majors (deferred 2026-08-01 — clears all 11 open `npm audit` advisories)**
-- [ ] `eslint` 9 → 10 (+ `@eslint/js` 10) — drops the `minimatch@3` → `brace-expansion@1.x` chain. Low risk: config is already flat, and typescript-eslint 8.65 declares `eslint: ^10` support. Fold in the `typescript-eslint` meta-package swap (replaces the separate plugin + parser deps) while touching `eslint.config.js`.
-- [ ] `wxt` 0.20 → 0.21 — drops `esbuild` and `web-ext-run` entirely, clearing the remaining advisories (`adm-zip`, `shell-quote`, `tmp`, `uuid`, `esbuild`). Breaking: `vite` becomes a required peer dep so it must be added to `devDependencies`; Node engine moves to `>=22`. Wait for the 0.21 line to settle (0.21.1–0.21.3 all shipped inside one week).
+- [x] `eslint` 9 → 10 (+ `@eslint/js` 10) — done 2026-08-16, including the `typescript-eslint` meta-package swap in `eslint.config.js`.
+- [x] `wxt` 0.20 → 0.21 — done 2026-08-16; `vite` added to `devDependencies`, `npm audit` now reports 0 vulnerabilities. Note: 0.21's generated tsconfig enables `noUncheckedIndexedAccess`, overridden to `false` in root `tsconfig.json` (adoption tracked under Code Hygiene).
 - [ ] `typescript` 5.9 → 7 — **blocked**: typescript-eslint 8.65 peers on `typescript >=4.8.4 <6.1.0`. Revisit when typescript-eslint ships TS 7 support.
 - [ ] Keep `package-lock.json`'s `version` field in sync — the bump scripts write `package.json` only, so it had drifted to 1.24.0. Simplest fix: `npm install --package-lock-only` after a bump rather than teaching the scripts to patch the lockfile.
 
