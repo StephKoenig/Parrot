@@ -13,6 +13,8 @@ interface SeasonGroup {
   totalCount: number;
   missingCount: number;
   missingEpisodes: number[];
+  /** Last counted episode of the group's end season; absent for stale cached gap data. */
+  lastEpisode?: number;
 }
 
 /** Group contiguous complete or fully-missing seasons into ranges. */
@@ -30,6 +32,7 @@ export function groupSeasons(seasons: SeasonGapInfo[]): SeasonGroup[] {
       last.endSeason = season.seasonNumber;
       last.ownedCount += season.ownedCount;
       last.totalCount += season.totalCount;
+      last.lastEpisode = season.lastEpisode;
     } else {
       groups.push({
         type,
@@ -39,6 +42,7 @@ export function groupSeasons(seasons: SeasonGapInfo[]): SeasonGroup[] {
         totalCount: season.totalCount,
         missingCount: season.missing.length,
         missingEpisodes: season.missing.map((m) => m.number),
+        lastEpisode: season.lastEpisode,
       });
     }
   }
@@ -67,7 +71,13 @@ export function formatMissingEpisodes(episodes: number[]): string {
   return ranges.join(", ");
 }
 
-function formatSeasonLabel(group: SeasonGroup): string {
+/** Format an episode code like "s03e04" (2-digit zero-pad, wider numbers as-is). */
+function formatEpisodeCode(season: number, episode: number): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `s${pad(season)}e${pad(episode)}`;
+}
+
+export function formatSeasonLabel(group: SeasonGroup): string {
   const range =
     group.startSeason === group.endSeason
       ? `S${group.startSeason}`
@@ -75,7 +85,11 @@ function formatSeasonLabel(group: SeasonGroup): string {
   const count = `${group.ownedCount}/${group.totalCount}`;
 
   if (group.type === "complete") {
-    return `${range}     ${count}`;
+    // Show the last episode Parrot counted — tells the user how far its
+    // knowledge extends when a site is ahead (new episode not yet in caches).
+    const latest =
+      group.lastEpisode != null ? `  (${formatEpisodeCode(group.endSeason, group.lastEpisode)})` : "";
+    return `${range}     ${count}${latest}`;
   }
   if (group.type === "missing") {
     return `${range}     ${count}  (missing all)`;
@@ -84,11 +98,21 @@ function formatSeasonLabel(group: SeasonGroup): string {
   return `${range}     ${count}  (${formatMissingEpisodes(group.missingEpisodes)})`;
 }
 
+export function formatPanelHeader(gaps: GapData): string {
+  const base = `${gaps.totalOwned} of ${gaps.totalEpisodes} episodes \u2014 ${gaps.completeSeasons} of ${gaps.totalSeasons} seasons full`;
+  let latest: { season: number; episode: number } | undefined;
+  for (const season of gaps.seasons) {
+    if (season.lastEpisode != null && (!latest || season.seasonNumber > latest.season)) {
+      latest = { season: season.seasonNumber, episode: season.lastEpisode };
+    }
+  }
+  return latest ? `${base} \u00b7 latest ${formatEpisodeCode(latest.season, latest.episode)}` : base;
+}
+
 export function createEpisodePanel(gaps: GapData, expanded = false): HTMLDivElement {
   const panel = createPanelContainer(PANEL_ATTR);
 
-  const headerText = `${gaps.totalOwned} of ${gaps.totalEpisodes} episodes \u2014 ${gaps.completeSeasons} of ${gaps.totalSeasons} seasons full`;
-  const { header, body } = createPanelHeader(headerText, expanded);
+  const { header, body } = createPanelHeader(formatPanelHeader(gaps), expanded);
 
   const groups = groupSeasons(gaps.seasons);
 

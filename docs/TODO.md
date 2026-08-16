@@ -18,6 +18,10 @@ Forward-looking roadmap. See [`Completed.md`](Completed.md) for everything alrea
 **Performance**
 - [ ] Measure index build time for large libraries (1000+ items)
 
+**Episode gap checking**
+- [ ] Configurable aired-episode grace period — replace the implicit "aired today or later doesn't count as missing" boundary (`excludeFuture` in `season-gaps.ts`) with a user-set "don't count episodes aired in the last N days" option. Today the only knobs are the excludeFuture on/off toggle plus 24h caches (`eg:*`, Sonarr fresh TTL).
+- [ ] Options label "Exclude future/unreleased movies" is misleading — it also governs TV episodes (`excludeFuture` gates both `collection.ts` and `season-gaps.ts`). Reword.
+
 ### Code Hygiene
 
 - [ ] Add unit tests for `gap-checker.ts` (needs browser.runtime mocking)

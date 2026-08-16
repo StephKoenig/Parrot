@@ -1,13 +1,19 @@
 import { describe, it, expect } from "vitest";
-import { groupSeasons, formatMissingEpisodes } from "../src/common/episode-panel";
+import { groupSeasons, formatMissingEpisodes, formatSeasonLabel, formatPanelHeader } from "../src/common/episode-panel";
 import type { SeasonGapInfo } from "../src/common/types";
 
-function makeSeason(num: number, owned: number, total: number, missingCount = 0): SeasonGapInfo {
+function makeSeason(
+  num: number,
+  owned: number,
+  total: number,
+  missingCount = 0,
+  lastEpisode?: number,
+): SeasonGapInfo {
   const missing = Array.from({ length: missingCount }, (_, i) => ({
     number: i + 1,
     name: `Episode ${i + 1}`,
   }));
-  return { seasonNumber: num, ownedCount: owned, totalCount: total, missing };
+  return { seasonNumber: num, ownedCount: owned, totalCount: total, missing, lastEpisode };
 }
 
 describe("groupSeasons", () => {
@@ -125,6 +131,22 @@ describe("groupSeasons", () => {
     expect(groups).toHaveLength(0);
   });
 
+  it("carries the end season's lastEpisode onto merged groups", () => {
+    const seasons = [
+      makeSeason(1, 10, 10, 0, 10),
+      makeSeason(2, 12, 12, 0, 12),
+      makeSeason(3, 4, 4, 0, 4),
+    ];
+    const groups = groupSeasons(seasons);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].lastEpisode).toBe(4);
+  });
+
+  it("leaves lastEpisode undefined when seasons lack it (stale cache shape)", () => {
+    const groups = groupSeasons([makeSeason(1, 10, 10)]);
+    expect(groups[0].lastEpisode).toBeUndefined();
+  });
+
   it("populates missingEpisodes for partial seasons", () => {
     const seasons: SeasonGapInfo[] = [{
       seasonNumber: 1,
@@ -168,5 +190,82 @@ describe("formatMissingEpisodes", () => {
 
   it("sorts unsorted input", () => {
     expect(formatMissingEpisodes([10, 3, 7])).toBe("e3, e7, e10");
+  });
+});
+
+describe("formatSeasonLabel", () => {
+  it("appends the last episode code to a complete range", () => {
+    const groups = groupSeasons([
+      makeSeason(1, 7, 7, 0, 7),
+      makeSeason(2, 6, 6, 0, 6),
+      makeSeason(3, 4, 4, 0, 4),
+    ]);
+    expect(formatSeasonLabel(groups[0])).toBe("S1 - S3     17/17  (s03e04)");
+  });
+
+  it("appends the last episode code to a single complete season", () => {
+    const groups = groupSeasons([makeSeason(2, 10, 10, 0, 10)]);
+    expect(formatSeasonLabel(groups[0])).toBe("S2     10/10  (s02e10)");
+  });
+
+  it("omits the suffix when lastEpisode is unknown (stale cache shape)", () => {
+    const groups = groupSeasons([makeSeason(1, 10, 10)]);
+    expect(formatSeasonLabel(groups[0])).toBe("S1     10/10");
+  });
+
+  it("does not add the suffix to partial seasons", () => {
+    const groups = groupSeasons([makeSeason(1, 7, 10, 3, 10)]);
+    expect(formatSeasonLabel(groups[0])).toBe("S1     7/10  (e1-3)");
+  });
+
+  it("does not add the suffix to fully-missing seasons", () => {
+    const groups = groupSeasons([makeSeason(1, 0, 10, 10, 10)]);
+    expect(formatSeasonLabel(groups[0])).toBe("S1     0/10  (missing all)");
+  });
+
+  it("prints wide season/episode numbers without truncation", () => {
+    const groups = groupSeasons([makeSeason(12, 105, 105, 0, 105)]);
+    expect(formatSeasonLabel(groups[0])).toBe("S12     105/105  (s12e105)");
+  });
+});
+
+describe("formatPanelHeader", () => {
+  function makeGaps(seasons: SeasonGapInfo[]) {
+    const totalOwned = seasons.reduce((n, s) => n + s.ownedCount, 0);
+    const totalEpisodes = seasons.reduce((n, s) => n + s.totalCount, 0);
+    return {
+      showTitle: "The Copper Meridian",
+      totalOwned,
+      totalEpisodes,
+      completeSeasons: seasons.filter((s) => s.missing.length === 0).length,
+      totalSeasons: seasons.length,
+      seasons,
+    };
+  }
+
+  it("appends the latest known episode from the highest season", () => {
+    const gaps = makeGaps([
+      makeSeason(1, 7, 7, 0, 7),
+      makeSeason(2, 6, 6, 0, 6),
+      makeSeason(3, 4, 4, 0, 4),
+    ]);
+    expect(formatPanelHeader(gaps)).toBe(
+      "17 of 17 episodes — 3 of 3 seasons full · latest s03e04",
+    );
+  });
+
+  it("uses the highest season that has a lastEpisode", () => {
+    const gaps = makeGaps([
+      makeSeason(1, 7, 7, 0, 7),
+      makeSeason(2, 3, 6, 3, 6),
+    ]);
+    expect(formatPanelHeader(gaps)).toBe(
+      "10 of 13 episodes — 1 of 2 seasons full · latest s02e06",
+    );
+  });
+
+  it("omits the latest suffix when no season carries lastEpisode (stale cache shape)", () => {
+    const gaps = makeGaps([makeSeason(1, 10, 10)]);
+    expect(formatPanelHeader(gaps)).toBe("10 of 10 episodes — 1 of 1 seasons full");
   });
 });

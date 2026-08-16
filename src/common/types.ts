@@ -310,6 +310,12 @@ export interface SeasonGapInfo {
   seasonNumber: number;
   ownedCount: number;
   totalCount: number;
+  /**
+   * Highest counted episode number in this season (post excludeFuture
+   * filter, so it matches what totalCount reflects). Optional: absent in
+   * eg:* cache entries written before this field existed.
+   */
+  lastEpisode?: number;
   missing: { number: number; name: string; airDate?: string }[];
 }
 

@@ -32,13 +32,46 @@ describe("computeSeasonGaps", () => {
       seasonNumber: 1,
       ownedCount: 1,
       totalCount: 2,
+      lastEpisode: 2,
       missing: [{ number: 2, name: "Harbor of Glass", airDate: "2020-01-08" }],
     });
     expect(gaps[1]).toEqual({
       seasonNumber: 2,
       ownedCount: 1,
       totalCount: 1,
+      lastEpisode: 1,
       missing: [],
+    });
+  });
+
+  describe("lastEpisode (highest counted episode per season)", () => {
+    it("records the highest episode number even when input is unordered", () => {
+      const episodes = [ep(1, 3, "2020-01-15"), ep(1, 1, "2020-01-01"), ep(1, 2, "2020-01-08")];
+      const gaps = computeSeasonGaps(episodes, new Set(), NO_FILTERS);
+      expect(gaps[0].lastEpisode).toBe(3);
+    });
+
+    it("ignores future episodes trimmed by excludeFuture", () => {
+      const episodes = [
+        ep(1, 1, "2026-07-01"),
+        ep(1, 2, "2026-07-08"),
+        ep(1, 3, "2026-07-10"), // tomorrow — filtered out
+      ];
+      const gaps = computeSeasonGaps(episodes, new Set(), ALL_FILTERS);
+      expect(gaps[0].lastEpisode).toBe(2);
+    });
+
+    it("counts an owned future episode as the last episode", () => {
+      const episodes = [ep(1, 1, "2026-07-01"), ep(1, 2, "2026-07-10")];
+      const owned = new Set([episodeKey(1, 2)]);
+      const gaps = computeSeasonGaps(episodes, owned, ALL_FILTERS);
+      expect(gaps[0].lastEpisode).toBe(2);
+    });
+
+    it("includes future episodes when excludeFuture is off", () => {
+      const episodes = [ep(1, 1, "2026-07-01"), ep(1, 2, "2026-07-10"), ep(1, 3, undefined)];
+      const gaps = computeSeasonGaps(episodes, new Set(), NO_FILTERS);
+      expect(gaps[0].lastEpisode).toBe(3);
     });
   });
 

@@ -60,8 +60,10 @@ export function computeSeasonGaps(
     const seasonEpisodes = bySeason.get(seasonNum)!;
     const missing: SeasonGapInfo["missing"] = [];
     let ownedCount = 0;
+    let lastEpisode = 0;
 
     for (const ep of seasonEpisodes) {
+      if (ep.episodeNumber > lastEpisode) lastEpisode = ep.episodeNumber;
       if (ownedSet.has(episodeKey(ep.seasonNumber, ep.episodeNumber))) {
         ownedCount++;
       } else {
@@ -77,6 +79,7 @@ export function computeSeasonGaps(
       seasonNumber: seasonNum,
       ownedCount,
       totalCount: seasonEpisodes.length,
+      lastEpisode,
       missing,
     });
   }
