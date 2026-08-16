@@ -1,6 +1,6 @@
 import js from "@eslint/js";
 import globals from "globals";
-import tseslint from "@typescript-eslint/eslint-plugin";
+import tseslint from "typescript-eslint";
 
 // All TypeScript, including root configs (wxt.config.ts, vitest.config.ts) —
 // the wxt tsconfig includes the whole repo, so projectService covers them.
@@ -12,7 +12,7 @@ export default [
   },
   // Type-checked linting: catches the fire-and-forget promise bug class
   // (no-floating-promises, no-misused-promises) that plain recommended misses.
-  ...tseslint.configs["flat/recommended-type-checked"].map((cfg) => ({
+  ...tseslint.configs.recommendedTypeChecked.map((cfg) => ({
     ...cfg,
     files: TS_FILES,
   })),
