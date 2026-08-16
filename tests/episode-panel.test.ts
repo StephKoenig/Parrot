@@ -243,29 +243,12 @@ describe("formatPanelHeader", () => {
     };
   }
 
-  it("appends the latest known episode from the highest season", () => {
+  it("shows counts only — the last-episode code lives on the rows, not the header", () => {
     const gaps = makeGaps([
       makeSeason(1, 7, 7, 0, 7),
       makeSeason(2, 6, 6, 0, 6),
       makeSeason(3, 4, 4, 0, 4),
     ]);
-    expect(formatPanelHeader(gaps)).toBe(
-      "17 of 17 episodes — 3 of 3 seasons full · latest s03e04",
-    );
-  });
-
-  it("uses the highest season that has a lastEpisode", () => {
-    const gaps = makeGaps([
-      makeSeason(1, 7, 7, 0, 7),
-      makeSeason(2, 3, 6, 3, 6),
-    ]);
-    expect(formatPanelHeader(gaps)).toBe(
-      "10 of 13 episodes — 1 of 2 seasons full · latest s02e06",
-    );
-  });
-
-  it("omits the latest suffix when no season carries lastEpisode (stale cache shape)", () => {
-    const gaps = makeGaps([makeSeason(1, 10, 10)]);
-    expect(formatPanelHeader(gaps)).toBe("10 of 10 episodes — 1 of 1 seasons full");
+    expect(formatPanelHeader(gaps)).toBe("17 of 17 episodes — 3 of 3 seasons full");
   });
 });

@@ -99,14 +99,8 @@ export function formatSeasonLabel(group: SeasonGroup): string {
 }
 
 export function formatPanelHeader(gaps: GapData): string {
-  const base = `${gaps.totalOwned} of ${gaps.totalEpisodes} episodes \u2014 ${gaps.completeSeasons} of ${gaps.totalSeasons} seasons full`;
-  let latest: { season: number; episode: number } | undefined;
-  for (const season of gaps.seasons) {
-    if (season.lastEpisode != null && (!latest || season.seasonNumber > latest.season)) {
-      latest = { season: season.seasonNumber, episode: season.lastEpisode };
-    }
-  }
-  return latest ? `${base} \u00b7 latest ${formatEpisodeCode(latest.season, latest.episode)}` : base;
+  // Counts only \u2014 the last-episode code is shown on the season rows.
+  return `${gaps.totalOwned} of ${gaps.totalEpisodes} episodes \u2014 ${gaps.completeSeasons} of ${gaps.totalSeasons} seasons full`;
 }
 
 export function createEpisodePanel(gaps: GapData, expanded = false): HTMLDivElement {

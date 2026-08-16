@@ -589,7 +589,7 @@ When viewing a TV show page on TMDB or TVDB, if the show is in the user's librar
 - Episode data fetched on demand, never stored in the library index
 - Gap results cached 24 hours in `storage.local` (keyed by `source:id`)
 - Respects `excludeSpecials` (skip Season 0) and `excludeFuture` (skip unaired episodes)
-- Panel shows "X of Y episodes — N of M seasons full · latest sXXeYY", with per-season breakdown; complete rows carry a `(sXXeYY)` suffix showing the last episode Parrot counted (so users can spot when a site is ahead of Parrot's caches). The suffix is omitted for gap results cached before the field existed.
+- Panel shows "X of Y episodes — N of M seasons full", with per-season breakdown; complete rows carry a `(sXXeYY)` suffix showing the last episode Parrot counted (so users can spot when a site is ahead of Parrot's caches). The suffix is omitted for gap results cached before the field existed.
 
 ---
 
@@ -678,7 +678,6 @@ Shown when viewing a TV show in your library with missing episodes:
 ```
 +----------------------------------------------+
 | > 52 of 65 episodes - 3 of 5 seasons full    |
-|   · latest s05e20                             |
 |----------------------------------------------|
 |  S1 - S2  40/40  (s02e20)                     |
 |  S3     12/15  (missing 3)                    |
@@ -687,10 +686,10 @@ Shown when viewing a TV show in your library with missing episodes:
 +----------------------------------------------+
 ```
 
-Complete rows (and the header) show the last episode Parrot counted —
-e.g. `(s04e10)` — so when a site lists a newer episode than Parrot knows
-about (24h gap cache, metadata lag), the user can see exactly how far
-Parrot's knowledge extends rather than trusting a bare "Complete".
+Complete rows show the last episode Parrot counted — e.g. `(s04e10)` —
+so when a site lists a newer episode than Parrot knows about (24h gap
+cache, metadata lag), the user can see exactly how far Parrot's
+knowledge extends rather than trusting a bare "Complete".
 
 ### Toolbar Icon
 
