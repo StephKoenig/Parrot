@@ -581,11 +581,15 @@ When viewing a movie page on any supported site, Parrot checks if the movie belo
 When viewing a TV show page on TMDB or TVDB, if the show is in the user's library but missing episodes, a collapsible season-level panel appears.
 
 - Triggered by `CHECK_EPISODES` message after library status badge (for shows in library only)
-- Source-based API routing:
+- Source-based API routing (each tier falls through to the next when it
+  can't serve — proxy disabled/down, no key, or show not found):
   - Community proxies enabled → Sonarr proxy for episode lists (free, no key needed)
   - TVDB pages with TVDB key configured → TVDB v4 API (direct, accurate numbering)
-  - TVDB pages without TVDB key → falls back to TMDB API via ID conversion
-  - TMDB pages without community proxies → TMDB API
+  - TMDB key configured → TMDB API (via ID conversion for TVDB pages)
+  - Final fallback → TVMaze episode list (free, no key; resolved by TVDB or
+    IMDb ID). Last resort because TVMaze numbering can drift from TVDB/Plex
+    ordering on specials and multi-part episodes; specials are never
+    reported from this source (TVMaze has no season 0)
 - Episode data fetched on demand, never stored in the library index
 - Gap results cached 24 hours in `storage.local` (keyed by `source:id`)
 - Respects `excludeSpecials` (skip Season 0) and `excludeFuture` (skip unaired episodes)

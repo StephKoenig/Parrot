@@ -2,7 +2,7 @@ import { getServers, saveServers, getLibraryIndex, saveLibraryIndex, getOptions,
 import { testConnection, buildLibraryIndex, fetchShowEpisodes, formatResolution, _resetUrlMemo } from "../api/plex";
 import { getMovie, getCollection, getTvShow, getTvSeason, findByTvdbId, findByImdbId, searchMovie, searchTv } from "../api/tmdb";
 import { getSeriesEpisodes, getSeriesDetails, validateTvdbKey } from "../api/tvdb";
-import { lookupByImdb } from "../api/tvmaze";
+import { getTvMazeEpisodes, lookupByImdb } from "../api/tvmaze";
 import { getImdbRating, validateOmdbKey } from "../api/omdb";
 import { fetchServerConnections, pickRemoteUrl } from "../api/plex-tv";
 import { getRadarrMovie, getRadarrMovieByImdb, getRadarrCollection, searchRadarrMovie } from "../api/radarr";
@@ -882,12 +882,8 @@ export default defineBackground(() => {
               const options = await loadOptions();
               const useTvdb = message.source === "tvdb" && !!options.tvdbApiKey;
               const useSonarr = options.useCommunityProxies;
-
-              // Need at least one data source
-              if (!useTvdb && !options.tmdbApiKey && !useSonarr) {
-                sendResponse({ hasGaps: false } satisfies EpisodeGapResponse);
-                break;
-              }
+              // No "at least one source" gate: keyless TVMaze is always
+              // available as the final fallback below.
 
               // Look up show in library index (two-step lookup)
               const index = await loadIndex();
@@ -964,13 +960,13 @@ export default defineBackground(() => {
                 excludeSpecials: options.excludeSpecials,
                 excludeFuture: options.excludeFuture,
               };
-              // Initialized here because TS can't prove one of the three data
-              // paths below always assigns (the sonarrHandled flag hides it).
+              // Initialized here because TS can't prove one of the four data
+              // paths below always assigns (the handled flag hides it).
               let seasonGaps: SeasonGapInfo[] = [];
               let showTitle: string = ownedShow.title;
 
               // --- Sonarr path: free episode data via community proxy ---
-              let sonarrHandled = false;
+              let handled = false;
               if (useSonarr) {
                 // Determine TVDB ID for Sonarr lookup
                 const tvdbIdForSonarr = message.source === "tvdb"
@@ -992,13 +988,13 @@ export default defineBackground(() => {
                       ownedSet,
                       gapOptions,
                     );
-                    sonarrHandled = true;
+                    handled = true;
                     debugLog("BG", `EPISODES: using Sonarr for tvdb:${tvdbIdForSonarr}`);
                   }
                 }
               }
 
-              if (!sonarrHandled && useTvdb) {
+              if (!handled && useTvdb) {
                 // --- TVDB path: one paginated call for all episodes ---
                 const allEpisodes = await getSeriesEpisodes(options.tvdbApiKey, message.id);
                 seasonGaps = computeSeasonGaps(
@@ -1011,48 +1007,77 @@ export default defineBackground(() => {
                   ownedSet,
                   gapOptions,
                 );
+                handled = true;
                 debugLog("BG", `EPISODES: using TVDB for ${message.id}`);
-              } else if (!sonarrHandled) {
+              }
+
+              if (!handled && options.tmdbApiKey) {
                 // --- TMDB path: per-season fetching ---
-                let tmdbId: number;
+                let tmdbId: number | null;
                 if (message.source === "tmdb") {
                   tmdbId = parseInt(message.id, 10);
                 } else {
-                  const found = await findByTvdbId(options.tmdbApiKey, message.id);
-                  if (!found) {
+                  tmdbId = await findByTvdbId(options.tmdbApiKey, message.id);
+                  if (!tmdbId) {
+                    // Not found on TMDB — fall through to TVMaze
                     debugLog("BG", `EPISODES: could not find TMDB ID for TVDB ${message.id}`);
-                    sendResponse({ hasGaps: false } satisfies EpisodeGapResponse);
-                    break;
-                  }
-                  tmdbId = found;
-                }
-
-                const tvShow = await getTvShow(options.tmdbApiKey, tmdbId);
-                showTitle = tvShow.name;
-
-                let seasons = tvShow.seasons;
-                if (options.excludeSpecials) {
-                  // Filter here too (not just in computeSeasonGaps) to skip
-                  // the per-season network fetch for specials.
-                  seasons = seasons.filter((s) => s.season_number !== 0);
-                }
-
-                const tmdbEpisodes: GapEpisode[] = [];
-                for (const season of seasons) {
-                  if (season.episode_count === 0) continue;
-                  const tmdbSeason = await getTvSeason(options.tmdbApiKey, tmdbId, season.season_number);
-                  for (const ep of tmdbSeason.episodes) {
-                    tmdbEpisodes.push({
-                      seasonNumber: season.season_number,
-                      episodeNumber: ep.episode_number,
-                      name: ep.name,
-                      airDate: ep.air_date ?? undefined,
-                    });
                   }
                 }
-                seasonGaps = computeSeasonGaps(tmdbEpisodes, ownedSet, gapOptions);
 
-                debugLog("BG", `EPISODES: using TMDB for ${message.id}`);
+                if (tmdbId) {
+                  const tvShow = await getTvShow(options.tmdbApiKey, tmdbId);
+                  showTitle = tvShow.name;
+
+                  let seasons = tvShow.seasons;
+                  if (options.excludeSpecials) {
+                    // Filter here too (not just in computeSeasonGaps) to skip
+                    // the per-season network fetch for specials.
+                    seasons = seasons.filter((s) => s.season_number !== 0);
+                  }
+
+                  const tmdbEpisodes: GapEpisode[] = [];
+                  for (const season of seasons) {
+                    if (season.episode_count === 0) continue;
+                    const tmdbSeason = await getTvSeason(options.tmdbApiKey, tmdbId, season.season_number);
+                    for (const ep of tmdbSeason.episodes) {
+                      tmdbEpisodes.push({
+                        seasonNumber: season.season_number,
+                        episodeNumber: ep.episode_number,
+                        name: ep.name,
+                        airDate: ep.air_date ?? undefined,
+                      });
+                    }
+                  }
+                  seasonGaps = computeSeasonGaps(tmdbEpisodes, ownedSet, gapOptions);
+
+                  handled = true;
+                  debugLog("BG", `EPISODES: using TMDB for ${message.id}`);
+                }
+              }
+
+              if (!handled) {
+                // --- TVMaze path: keyless final fallback ---
+                // Reached when the Sonarr proxy is disabled/down and no user
+                // API keys apply. TVMaze numbering can drift from TVDB/Plex
+                // ordering on specials and multi-parters, hence last resort.
+                const tvdbIdForTvMaze =
+                  message.source === "tvdb" ? message.id : ownedShow.tvdbId;
+                const tvmazeShow = await getTvMazeEpisodes({
+                  tvdbId: tvdbIdForTvMaze,
+                  imdbId: ownedShow.imdbId,
+                });
+                if (tvmazeShow?.episodes.length) {
+                  if (tvmazeShow.title) showTitle = tvmazeShow.title;
+                  seasonGaps = computeSeasonGaps(tvmazeShow.episodes, ownedSet, gapOptions);
+                  handled = true;
+                  debugLog("BG", `EPISODES: using TVMaze for ${message.source}:${message.id}`);
+                }
+              }
+
+              if (!handled) {
+                debugLog("BG", `EPISODES: no data source could serve ${message.source}:${message.id}`);
+                sendResponse({ hasGaps: false } satisfies EpisodeGapResponse);
+                break;
               }
 
               const totalOwned = seasonGaps.reduce((sum, s) => sum + s.ownedCount, 0);

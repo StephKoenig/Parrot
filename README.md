@@ -133,7 +133,7 @@ When viewing a TV show that's in your library on TMDB or TVDB, Parrot shows a co
 
 <img src="docs/screenshots/collection-gap-panel-TV-series.png" alt="Episode gap panel" width="380" />
 
-The check works out of the box via the Sonarr community proxy. It falls back to the TMDB or TVDB v4 API when configured.
+The check works out of the box via the Sonarr community proxy. It falls back to the TMDB or TVDB v4 API when configured, and finally to the keyless TVMaze API — so episode gap checking works even with no proxies and no API keys.
 
 ### Popup dashboard
 

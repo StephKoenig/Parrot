@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getTvMazeExternals, lookupByImdb, lookupByTvdb } from "../src/api/tvmaze";
+import { getTvMazeExternals, getTvMazeEpisodes, lookupByImdb, lookupByTvdb } from "../src/api/tvmaze";
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -66,6 +66,81 @@ describe("lookupByImdb", () => {
       expect.stringContaining("imdb=tt0000001"),
       expect.anything(),
     );
+  });
+});
+
+describe("getTvMazeEpisodes", () => {
+  const SHOW = { id: 77, name: "Harbor of Glass", externals: { thetvdb: 12345, imdb: "tt0000004" } };
+  const EPISODES = [
+    { season: 1, number: 1, name: "The Copper Meridian", airdate: "2020-01-01" },
+    { season: 1, number: 2, name: "Lanterns at Dusk", airdate: "" },
+    { season: 2, number: null, name: "Reunion Special", airdate: "2021-06-01" },
+    { season: 2, number: 1, name: "Salt and Circuit", airdate: "2021-09-01" },
+  ];
+
+  function mockFetchSequence(...responses: { data?: unknown; status?: number }[]) {
+    const fn = vi.fn();
+    for (const r of responses) {
+      const status = r.status ?? 200;
+      fn.mockResolvedValueOnce({
+        ok: status >= 200 && status < 300,
+        status,
+        json: () => Promise.resolve(r.data ?? {}),
+      });
+    }
+    vi.stubGlobal("fetch", fn);
+    return fn;
+  }
+
+  it("resolves by TVDB ID and returns title plus normalized episodes", async () => {
+    mockFetchSequence({ data: SHOW }, { data: EPISODES });
+    const result = await getTvMazeEpisodes({ tvdbId: 12345 });
+    expect(result).toEqual({
+      title: "Harbor of Glass",
+      episodes: [
+        { seasonNumber: 1, episodeNumber: 1, name: "The Copper Meridian", airDate: "2020-01-01" },
+        { seasonNumber: 1, episodeNumber: 2, name: "Lanterns at Dusk", airDate: undefined },
+        { seasonNumber: 2, episodeNumber: 1, name: "Salt and Circuit", airDate: "2021-09-01" },
+      ],
+    });
+  });
+
+  it("fetches the episode list for the resolved TVMaze show ID", async () => {
+    const fn = mockFetchSequence({ data: SHOW }, { data: EPISODES });
+    await getTvMazeEpisodes({ tvdbId: 12345 });
+    expect(fn).toHaveBeenNthCalledWith(1, expect.stringContaining("thetvdb=12345"), expect.anything());
+    expect(fn).toHaveBeenNthCalledWith(2, "https://api.tvmaze.com/shows/77/episodes", expect.anything());
+  });
+
+  it("falls back to IMDb lookup when the TVDB lookup 404s", async () => {
+    const fn = mockFetchSequence({ status: 404 }, { data: SHOW }, { data: EPISODES });
+    const result = await getTvMazeEpisodes({ tvdbId: 12345, imdbId: "tt0000004" });
+    expect(fn).toHaveBeenNthCalledWith(2, expect.stringContaining("imdb=tt0000004"), expect.anything());
+    expect(result?.title).toBe("Harbor of Glass");
+  });
+
+  it("uses IMDb lookup directly when no TVDB ID is given", async () => {
+    const fn = mockFetchSequence({ data: SHOW }, { data: EPISODES });
+    await getTvMazeEpisodes({ imdbId: "tt0000004" });
+    expect(fn).toHaveBeenNthCalledWith(1, expect.stringContaining("imdb=tt0000004"), expect.anything());
+  });
+
+  it("returns null when no lookup resolves", async () => {
+    mockFetchSequence({ status: 404 }, { status: 404 });
+    const result = await getTvMazeEpisodes({ tvdbId: 1, imdbId: "tt0" });
+    expect(result).toBeNull();
+  });
+
+  it("returns null when no IDs are provided", async () => {
+    const fn = mockFetchSequence();
+    const result = await getTvMazeEpisodes({});
+    expect(result).toBeNull();
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it("throws when the episode fetch fails", async () => {
+    mockFetchSequence({ data: SHOW }, { status: 500 });
+    await expect(getTvMazeEpisodes({ tvdbId: 12345 })).rejects.toThrow("TVMaze API error: 500");
   });
 });
 
