@@ -167,7 +167,7 @@ parrot/
 │       ├── logger.ts                  # Debug/error logging gated by settings toggle
 │       ├── dom-utils.ts               # DOM utilities (waitForElement)
 │       └── sites.ts                   # Supported site definitions
-├── tests/                             # Vitest test suite (378 tests)
+├── tests/                             # Vitest test suite (404 tests)
 ├── scripts/
 │   ├── bump-build.js                  # Auto-increment build number (B)
 │   └── bump-commit.js                 # Bump commit number (A), reset B

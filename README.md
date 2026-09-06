@@ -247,7 +247,7 @@ See [`CLAUDE.md`](CLAUDE.md) for a tour of the codebase, and [`docs/Parrot spec.
 - TypeScript (strict mode)
 - [WXT](https://wxt.dev/) — Vite-based browser extension framework
 - Manifest V3
-- Vitest (378 tests as of v1.26.0)
+- Vitest (404 tests as of v1.27.0)
 
 ---
 

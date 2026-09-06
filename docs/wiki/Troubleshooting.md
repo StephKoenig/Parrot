@@ -74,6 +74,24 @@ Check:
 - Options → Gap Detection → **Minimum in library to show gaps** — lower to `1` if you want collections to surface with a single owned member
 - The collection itself might be smaller than **Minimum collection size** (default 2)
 
+### TV pill shows the wrong resolution
+
+**Likely cause:** The episode gap cache is stale. For a series the pill reports
+the resolution of the most recent episode you own, and that value is cached for
+24 hours alongside the gap data, so upgrading episodes on the Plex server is not
+picked up immediately.
+
+Check:
+- Options -> Plex Servers -> **Refresh Library**. Since v1.27.0 this clears the
+  episode gap cache too, so the next visit re-reads the resolution from Plex.
+- Before v1.27.0 a refresh did not clear that cache. If you are on an older
+  build, either wait out the 24 hours or use **Clear Library** (which also
+  discards the index and forces a full re-sync).
+
+Note the pill reports the highest season/episode you **own**, not the newest
+episode that has aired, so a series you are behind on will show the resolution
+of your latest copy rather than of the current broadcast.
+
 ### Update badge "!" won't go away
 
 **Likely cause:** Cached check is stale, or the install didn't actually replace the files.

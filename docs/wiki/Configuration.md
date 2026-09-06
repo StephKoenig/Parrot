@@ -24,7 +24,9 @@ You can add as many servers as you want — Parrot will merge items by external 
 The status block shows the current item count, when the index was last synced, and storage usage. The buttons let you:
 
 - **Test All** — quick connectivity check across every server
-- **Refresh Library** — force a rebuild of the index
+- **Refresh Library** — force a rebuild of the index. This also clears the
+  episode gap cache, so TV shows pick up episodes you have added or upgraded
+  since the last check rather than waiting out the 24-hour cache.
 - **Clear Library** — wipe the cached index entirely
 
 ### Auto-refresh
