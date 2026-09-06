@@ -1,6 +1,6 @@
 # Parrot — TODO
 
-Forward-looking roadmap. See [`Completed.md`](Completed.md) for everything already shipped.
+Forward-looking roadmap. Shipped work is recorded in the [GitHub release notes](https://github.com/The-Ant-Forge/Parrot/releases).
 
 ---
 
@@ -10,15 +10,8 @@ Forward-looking roadmap. See [`Completed.md`](Completed.md) for everything alrea
 - [ ] Universal content script with dynamic registration (`browser.scripting.registerContentScripts`)
 - [ ] Per-site permission request (`browser.permissions.request`)
 
-### Polish & Reliability (remaining)
+### Episode Gap Checking
 
-**Error Handling**
-- [ ] Retry logic for transient network failures during index build (self-heal covers moved-server; a plain transient retry is still open)
-
-**Performance**
-- [ ] Measure index build time for large libraries (1000+ items)
-
-**Episode gap checking**
 - [ ] Configurable aired-episode grace period — replace the implicit "aired today or later doesn't count as missing" boundary (`excludeFuture` in `season-gaps.ts`) with a user-set "don't count episodes aired in the last N days" option. Today the only knobs are the excludeFuture on/off toggle plus 24h caches (`eg:*`, Sonarr fresh TTL).
 - [ ] Options label "Exclude future/unreleased movies" is misleading — it also governs TV episodes (`excludeFuture` gates both `collection.ts` and `season-gaps.ts`). Reword.
 
@@ -28,11 +21,9 @@ Forward-looking roadmap. See [`Completed.md`](Completed.md) for everything alrea
 - [ ] Add unit tests for `gap-checker.ts` (needs browser.runtime mocking)
 - [ ] Add unit tests for `url-observer.ts` (needs MutationObserver mocking)
 
-**Dependency majors (deferred 2026-08-01 — clears all 11 open `npm audit` advisories)**
-- [x] `eslint` 9 → 10 (+ `@eslint/js` 10) — done 2026-08-16, including the `typescript-eslint` meta-package swap in `eslint.config.js`.
-- [x] `wxt` 0.20 → 0.21 — done 2026-08-16; `vite` added to `devDependencies`, `npm audit` now reports 0 vulnerabilities. Note: 0.21's generated tsconfig enables `noUncheckedIndexedAccess`, overridden to `false` in root `tsconfig.json` (adoption tracked under Code Hygiene).
-- [ ] `typescript` 5.9 → 7 — **blocked**: typescript-eslint 8.65 peers on `typescript >=4.8.4 <6.1.0`. Revisit when typescript-eslint ships TS 7 support.
-- [ ] Keep `package-lock.json`'s `version` field in sync — the bump scripts write `package.json` only, so it had drifted to 1.24.0. Simplest fix: `npm install --package-lock-only` after a bump rather than teaching the scripts to patch the lockfile.
+**Dependency majors**
+- [ ] `typescript` 5.9 -> 7 - **blocked upstream**: typescript-eslint 8.68.0 (latest as of 2026-08-30) still peers on `typescript >=4.8.4 <6.1.0`, and there is no v9 line yet. No Parrot-side driver either: `npm audit` is clean and nothing we want needs TS 7. Recheck when typescript-eslint announces TS 7 support.
+- [ ] Teach the version bump scripts to sync `package-lock.json`'s `version` field. `scripts/bump-build.js` and `bump-commit.js` write `package.json` only, so the lockfile drifts on every build and has to be hand-synced. Simplest fix: run `npm install --package-lock-only` from the scripts.
 
 ---
 
@@ -91,3 +82,12 @@ Reference: [Plex Pro Week '25 blog post](https://www.plex.tv/blog/plex-pro-week-
 - Episode-level matching on episode-specific pages (e.g. TMDB `/tv/{id}/season/{n}/episode/{n}`)
 - Tiered cache TTL (ended shows = longer cache, continuing shows = shorter)
 - Cross-reference with ComPlexionist collection gap data
+
+---
+
+## Closed Without Action
+
+Recorded so consolidation reviews don't keep re-adding them. Reopen if a real report justifies it.
+
+- **Retry logic for transient network failures during index build** (open since Phase 9) - the failure mode that actually bit us was a moved server, now handled by `bg/self-heal.ts` plus `lastRefreshError` surfacing. No evidence of plain transient failures.
+- **Measure index build time for large libraries (1000+ items)** (open since Phase 9) - no success criterion and no complaint driving it. If large-library work ever happens, do it alongside "Pagination for large libraries" under Plex API Modernisation.

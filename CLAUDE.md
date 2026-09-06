@@ -71,7 +71,7 @@ Version format: `Major.A.B` (e.g. `1.12.15`)
 - All segments can be manually edited in `package.json` if needed
 
 ### Releases
-Before doing a release chack that all primary document are updated and current with respect to what you know of the changes made. This includes TODO.md, completed.md, parrot spec.md and readme.md (in the root). Then do a commit and push to capture those changes int he remote before starting the normal release procedure.
+Before doing a release check that all primary documents are updated and current with respect to what you know of the changes made. This includes TODO.md, parrot spec.md and readme.md (in the root). Then do a commit and push to capture those changes in the remote before starting the normal release procedure.
 
 All releases should have a thorough description in markdown format. Descriptions should start with an intro paragraph giving a broad summary of changes, improvements and fixes then list in order:
 1. New Features: What they are, how they work and what benefit they bring
@@ -108,7 +108,7 @@ Wiki images use absolute `raw.githubusercontent.com` URLs so screenshots only li
 Whenever we do a planning session (plan mode), always write the finalised specification into `docs/` as a named document. This ensures we have a durable reference if context is lost or the session is interrupted.
 
 ### Update docs before committing
-Before committing, check if `docs/Parrot spec.md`, `README.md` and `CLAUDE.md` need updating to reflect the changes (new sites, new features, architectural changes, etc.) and check whether a `docs/TODO.md` can be checked. If an entire TODO section is completed then move the section to Completed.md in the same folder.
+Before committing, check if `docs/Parrot spec.md`, `README.md` and `CLAUDE.md` need updating to reflect the changes (new sites, new features, architectural changes, etc.) and check whether an item in `docs/TODO.md` can be ticked. Delete a TODO section once everything in it has shipped; the record of shipped work is the GitHub release notes.
 
 ### Compile/test locally after changes
 1. Make a small, targeted change
