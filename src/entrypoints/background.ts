@@ -1,4 +1,4 @@
-import { getServers, saveServers, getLibraryIndex, saveLibraryIndex, getOptions, saveOptions, getCachedCollection, saveCachedCollection, getCachedEpisodeGaps, saveCachedEpisodeGaps, clearMetadataCaches, getUpdateCheck, getLastRefreshError, setLastRefreshError, clearLastRefreshError } from "../common/storage";
+import { getServers, saveServers, getLibraryIndex, saveLibraryIndex, getOptions, saveOptions, getCachedCollection, saveCachedCollection, getCachedEpisodeGaps, saveCachedEpisodeGaps, clearMetadataCaches, clearEpisodeGapCaches, getUpdateCheck, getLastRefreshError, setLastRefreshError, clearLastRefreshError } from "../common/storage";
 import { testConnection, buildLibraryIndex, fetchShowEpisodes, formatResolution, _resetUrlMemo } from "../api/plex";
 import { getMovie, getCollection, getTvShow, getTvSeason, findByTvdbId, findByImdbId, searchMovie, searchTv } from "../api/tmdb";
 import { getSeriesEpisodes, getSeriesDetails, validateTvdbKey } from "../api/tvdb";
@@ -182,6 +182,9 @@ async function loadIndex(): Promise<LibraryIndex | null> {
           const { index: newIndex } = await buildIndexSelfHealing(servers);
           await saveLibraryIndex(newIndex);
           setIndex(newIndex);
+          // eg:* entries cache the owned-episode set and the latest-episode
+          // resolution, both of which this rebuild may have just invalidated.
+          await clearEpisodeGapCaches();
           await clearLastRefreshError();
           debugLog("BG", `auto-refresh complete — ${newIndex.itemCount} items`);
         } catch (err) {
@@ -644,6 +647,9 @@ export default defineBackground(() => {
               const { index, servers: activeServers } = await buildIndexSelfHealing(servers);
               await saveLibraryIndex(index);
               setIndex(index);
+              // See the auto-refresh path: a rebuild invalidates the
+              // library-derived half of every eg:* entry.
+              await clearEpisodeGapCaches();
 
               // Update per-server item counts
               const counts = new Map<string, number>();

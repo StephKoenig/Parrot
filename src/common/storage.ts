@@ -96,6 +96,20 @@ export async function clearMetadataCaches(): Promise<void> {
   await browser.storage.local.remove(keysToRemove);
 }
 
+/**
+ * Clear only the episode gap cache. Unlike collections (`cc:*`) and proxy
+ * responses (`pc:*`), which hold external metadata that a library change can't
+ * invalidate, `eg:*` entries bake in local library state: the owned-episode set
+ * and the latest-episode resolution. A library refresh must drop them or an
+ * upgraded episode keeps reporting its old resolution for up to the 24h TTL.
+ */
+export async function clearEpisodeGapCaches(): Promise<void> {
+  const all = await browser.storage.local.get(null);
+  const keysToRemove = Object.keys(all).filter((k) => k.startsWith(EPISODE_GAP_PREFIX));
+  keysToRemove.push(LEGACY_EPISODE_GAP_CACHE_KEY);
+  await browser.storage.local.remove(keysToRemove);
+}
+
 // --- Last refresh outcome ---
 
 const REFRESH_ERROR_KEY = "lastRefreshError";

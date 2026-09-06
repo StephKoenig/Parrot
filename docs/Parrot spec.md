@@ -808,9 +808,18 @@ These patterns are proven in the desktop app and guide extension development:
 ### Cache TTL Strategy
 
 ComPlexionist uses conditional TTLs based on content type. Parrot currently uses:
-- **Library index:** 24 hours (flat)
-- **Collection cache:** 30 days
-- **Episode gap cache:** 24 hours
+- **Library index:** auto-refresh every `autoRefreshDays` (default 7 days)
+- **Collection cache (`cc:*`):** 30 days
+- **Episode gap cache (`eg:*`):** 24 hours
+
+**Invalidation on library refresh.** `eg:*` is the only derived cache that
+bakes in local library state: the owned-episode set and the latest-episode
+resolution shown in the pill. Both refresh paths (manual `BUILD_INDEX` and the
+auto-refresh in `loadIndex`) therefore call `clearEpisodeGapCaches()` after
+saving the new index, so an episode upgraded on the Plex server (720p to 1080p,
+say) is reflected on the next visit rather than up to 24 hours later.
+`cc:*` and `pc:*` hold external metadata that a library change cannot
+invalidate, so a refresh deliberately leaves them alone.
 
 ### Date Timezone Buffer
 
